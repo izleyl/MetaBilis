@@ -1,0 +1,606 @@
+﻿@page "/admin"
+@using MetaBiliş.Models
+@using System.IO
+@inject UygulamaDbContext DbContext
+@inject IJSRuntime JSRuntime
+
+<style>
+    .admin-bg {
+        background-color: #f8f9fa;
+        min-height: 100vh;
+    }
+
+    .glass-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.03);
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .minimal-input {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        transition: all 0.2s;
+    }
+
+        .minimal-input:focus {
+            background-color: #fff;
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+            outline: none;
+        }
+
+    .test-item {
+        border-radius: 10px;
+        margin-bottom: 6px;
+        padding: 12px 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+
+        .test-item:hover {
+            background-color: #f8f9fa;
+            border-color: #e9ecef;
+        }
+
+        .test-item.active {
+            background-color: #f0f7ff;
+            color: #0d6efd;
+            border-color: #cce3ff;
+        }
+
+    /* Düzenle ve Sil Butonları */
+    .btn-action {
+        opacity: 0;
+        transition: opacity 0.2s;
+        background: none;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .test-item:hover .btn-action {
+        opacity: 1;
+    }
+
+    .btn-action.text-danger:hover {
+        background-color: #ffe6e6;
+    }
+
+    .btn-action.text-primary:hover {
+        background-color: #e6f0ff;
+    }
+
+    .nav-pills .nav-link {
+        border-radius: 8px;
+        color: #6c757d;
+        font-weight: 500;
+        margin-right: 8px;
+        transition: all 0.2s;
+    }
+
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+        }
+
+        .nav-pills .nav-link:hover:not(.active) {
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+
+    .question-card {
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+
+        .question-card:hover {
+            border-color: #dee2e6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+
+    .modern-btn {
+        border-radius: 10px;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+        padding: 0.6rem 1.5rem;
+        transition: all 0.2s;
+    }
+</style>
+
+<div class="admin-bg pt-4 pb-5">
+    <div class="container-xl">
+        @if (!isYetkili)
+        {
+            <div class="row justify-content-center align-items-center" style="height: 80vh;">
+                <div class="col-12 col-md-5 col-lg-4">
+                    <div class="glass-card p-5 text-center">
+                        <div class="mb-4">
+                            <h4 class="fw-bold text-dark mb-1">Yönetici Girişi</h4>
+                            <p class="text-muted small">Panele erişmek için şifrenizi girin</p>
+                        </div>
+                        <div class="mb-4">
+                            <input type="password" class="minimal-input w-100 text-center" placeholder="Şifre" @bind="girilenSifre" />
+                        </div>
+                        <button class="btn btn-primary modern-btn w-100" @onclick="GirisYap">Giriş Yap</button>
+
+                        @if (hataliGiris)
+                        {
+                            <div class="text-danger small fw-semibold mt-3">Hatalı şifre girdiniz.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold text-dark mb-0">Yönetim Paneli</h3>
+                <button class="btn btn-outline-secondary modern-btn bg-white" @onclick="CikisYap">
+                    Çıkış Yap
+                </button>
+            </div>
+
+            <div class="row g-4">
+                <!-- SOL KOLON: TEST YÖNETİMİ -->
+                <div class="col-lg-4">
+                    <div class="glass-card p-4 h-100 d-flex flex-column">
+
+                        <h6 class="fw-bold text-dark mb-3">Mevcut Testler</h6>
+                        <div class="flex-grow-1" style="max-height: 450px; overflow-y: auto; margin-bottom: 20px;">
+                            @if (!mevcutTestler.Any())
+                            {
+                                <p class="text-muted small text-center py-4">Henüz test oluşturulmadı.</p>
+                            }
+                            @foreach (var test in mevcutTestler)
+                            {
+                                bool isSelected = secilenTestId == test.Id;
+                                <div class="test-item d-flex justify-content-between align-items-center @(isSelected ? "active" : "text-dark")" @onclick="() => TestiSec(test.Id)">
+                                    <span class="fw-medium text-truncate pe-2">@test.Ad</span>
+                                    <div class="d-flex text-nowrap">
+                                        <!-- Test Adı Değiştirme Butonu -->
+                                        <button class="btn-action text-primary" @onclick="() => TestAdiniDegistir(test.Id, test.Ad)" @onclick:stopPropagation="true" title="Adını Değiştir">
+                                            ✏️
+                                        </button>
+                                        <!-- Test Silme Butonu -->
+                                        <button class="btn-action text-danger" @onclick="() => TestSil(test.Id)" @onclick:stopPropagation="true" title="Sil">
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="pt-3 border-top">
+                            <h6 class="fw-bold text-dark mb-3">Yeni Test Oluştur</h6>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="minimal-input flex-grow-1" placeholder="Test Adı" @bind="yeniTestAd" />
+                                <button class="btn btn-dark modern-btn px-4" @onclick="TestOlustur">Ekle</button>
+                            </div>
+                            @if (!string.IsNullOrEmpty(testOlusturulduMesaji))
+                            {
+                                <div class="text-success small fw-medium mt-2">@testOlusturulduMesaji</div>
+                            }
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- SAĞ KOLON: İÇERİK YÖNETİMİ -->
+                <div class="col-lg-8">
+                    <div class="glass-card h-100 p-0 overflow-hidden d-flex flex-column">
+
+                        @if (secilenTestId == 0)
+                        {
+                            <div class="p-5 text-center d-flex flex-column justify-content-center h-100">
+                                <h5 class="fw-bold text-secondary mb-2">Test Seçilmedi</h5>
+                                <p class="text-muted small">Soruları görüntülemek veya eklemek için sol menüden bir test seçin.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            var seciliTest = mevcutTestler.FirstOrDefault(t => t.Id == secilenTestId);
+
+                            <div class="p-4 border-bottom bg-white">
+                                <h5 class="fw-bold text-dark mb-3">@seciliTest?.Ad</h5>
+                                <ul class="nav nav-pills">
+                                    <li class="nav-item">
+                                        <button class="nav-link @(aktifSekme == 0 ? "active" : "")" @onclick="() => aktifSekme = 0">
+                                            Sorular (@seciliTestSorulari.Count)
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link @(aktifSekme == 1 ? "active" : "")" @onclick="() => aktifSekme = 1">
+                                            Manuel Ekle
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link @(aktifSekme == 2 ? "active" : "")" @onclick="() => aktifSekme = 2">
+                                            Dosyadan Yükle
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="p-4 flex-grow-1 bg-white" style="overflow-y: auto; max-height: 600px;">
+
+                                <!-- SEKME 0: SORULAR -->
+                                @if (aktifSekme == 0)
+                                {
+                                    if (!seciliTestSorulari.Any())
+                                    {
+                                        <div class="text-center py-5 text-muted small">Bu testte henüz soru bulunmuyor.</div>
+                                    }
+                                    else
+                                    {
+                                        <!-- TÜM SORULARI SİL BUTONU -->
+                                        <div class="d-flex justify-content-end mb-3">
+                                            <button class="btn btn-outline-danger btn-sm fw-medium rounded-pill px-3" @onclick="TumSorulariSil">
+                                                🗑️ Tüm Soruları Sil
+                                            </button>
+                                        </div>
+
+                                        @foreach (var soru in seciliTestSorulari)
+                                        {
+                                            <div class="question-card p-3 mb-3">
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <span class="fw-semibold text-dark pe-3">@soru.SoruMetni</span>
+                                                    <button class="btn btn-sm btn-light text-danger rounded-3" @onclick="() => SoruSil(soru.Id)">Sil</button>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-3 mb-2">
+                                                    <span class="badge bg-light text-secondary border fw-normal">@(soru.SoruTipi == "DogruYanlis" ? "Doğru/Yanlış" : "Çoktan Seçmeli")</span>
+                                                    <span class="small text-success fw-medium">Cevap: @soru.DogruCevap</span>
+                                                </div>
+                                                @if (soru.SoruTipi == "CoktanSecmeli")
+                                                {
+                                                    <div class="bg-light p-2 rounded-3 small text-muted d-flex gap-4 flex-wrap">
+                                                        <span><strong>A)</strong> @soru.SecenekA</span>
+                                                        <span><strong>B)</strong> @soru.SecenekB</span>
+                                                        <span><strong>C)</strong> @soru.SecenekC</span>
+                                                        <span><strong>D)</strong> @soru.SecenekD</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                }
+
+                                <!-- SEKME 1: MANUEL EKLE -->
+                                @if (aktifSekme == 1)
+                                {
+                                    <div class="mb-3 w-50">
+                                        <label class="form-label text-muted small fw-medium">Soru Tipi</label>
+                                        <select class="minimal-input w-100" @bind="manuelSoruTipi">
+                                            <option value="DogruYanlis">Doğru / Yanlış</option>
+                                            <option value="CoktanSecmeli">Çoktan Seçmeli</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="form-label text-muted small fw-medium">Soru Metni</label>
+                                        <textarea class="minimal-input w-100" rows="2" @bind="mSoruMetni"></textarea>
+                                    </div>
+
+                                    @if (manuelSoruTipi == "CoktanSecmeli")
+                                    {
+                                        <div class="row g-3 mb-4">
+                                            <div class="col-md-6">
+                                                <div class="d-flex align-items-center bg-light rounded-3 p-1 border">
+                                                    <span class="fw-bold px-3 text-muted">A</span>
+                                                    <input type="text" class="form-control border-0 bg-transparent shadow-none" @bind="mSecenekA" />
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex align-items-center bg-light rounded-3 p-1 border">
+                                                    <span class="fw-bold px-3 text-muted">B</span>
+                                                    <input type="text" class="form-control border-0 bg-transparent shadow-none" @bind="mSecenekB" />
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex align-items-center bg-light rounded-3 p-1 border">
+                                                    <span class="fw-bold px-3 text-muted">C</span>
+                                                    <input type="text" class="form-control border-0 bg-transparent shadow-none" @bind="mSecenekC" />
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex align-items-center bg-light rounded-3 p-1 border">
+                                                    <span class="fw-bold px-3 text-muted">D</span>
+                                                    <input type="text" class="form-control border-0 bg-transparent shadow-none" @bind="mSecenekD" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <div class="mb-4 w-25">
+                                        <label class="form-label text-muted small fw-medium">Doğru Cevap</label>
+                                        <select class="minimal-input w-100" @bind="mDogruCevap">
+                                            @if (manuelSoruTipi == "DogruYanlis")
+                                            {
+                                                <option value="Doğru">Doğru</option>
+                                                <option value="Yanlış">Yanlış</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <button class="btn btn-primary modern-btn" @onclick="ManuelSoruKaydet">Sisteme Ekle</button>
+                                    @if (!string.IsNullOrEmpty(islemMesaji))
+                                    {
+                                        <span class="text-success small fw-medium ms-3">@islemMesaji</span>
+                                    }
+                                }
+
+                                <!-- SEKME 2: DOSYADAN YÜKLE -->
+                                @if (aktifSekme == 2)
+                                {
+                                    <div class="bg-light p-3 rounded-3 mb-4 border">
+                                        <small class="text-muted d-block mb-1">Doğru/Yanlış Formatı:</small>
+                                        <code class="d-block mb-3 text-dark bg-white p-2 rounded border">DogruYanlis | Soru Metni | Doğru</code>
+
+                                        <small class="text-muted d-block mb-1">Çoktan Seçmeli Formatı:</small>
+                                        <code class="d-block text-dark bg-white p-2 rounded border">CoktanSecmeli | Soru Metni | A Şıkkı | B Şıkkı | C Şıkkı | D Şıkkı | A</code>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small fw-medium">.txt Dosyası Yükle</label>
+                                        <InputFile OnChange="DosyaYukle" class="minimal-input w-100" />
+                                    </div>
+
+                                    @if (!string.IsNullOrEmpty(islemMesaji))
+                                    {
+                                        <div class="text-success fw-medium small mt-2">@islemMesaji</div>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // Güvenlik
+    private bool isYetkili = false;
+    private string girilenSifre = "";
+    private string adminSifresi = "Admin";
+    private bool hataliGiris = false;
+
+    // Ortak Veriler
+    private List<Test> mevcutTestler = new();
+    private int secilenTestId = 0;
+    private List<Soru> seciliTestSorulari = new();
+    private int aktifSekme = 0;
+    private string islemMesaji = "";
+
+    // Test İşlemleri
+    private string yeniTestAd = "";
+    private string testOlusturulduMesaji = "";
+
+    // Manuel Soru İşlemleri
+    private string manuelSoruTipi = "DogruYanlis";
+    private string mSoruMetni = "";
+    private string mSecenekA = "", mSecenekB = "", mSecenekC = "", mSecenekD = "";
+    private string mDogruCevap = "Doğru";
+
+    protected override void OnInitialized()
+    {
+        TestListesiniYenile();
+    }
+
+    private void TestListesiniYenile()
+    {
+        mevcutTestler = DbContext.Testler.ToList();
+    }
+
+    private void SorularıYenile()
+    {
+        if (secilenTestId != 0)
+        {
+            seciliTestSorulari = DbContext.Sorular.Where(s => s.TestId == secilenTestId).ToList();
+        }
+    }
+
+    
+    private void TestiSec(int testId)
+    {
+        secilenTestId = testId;
+        aktifSekme = 0;
+        islemMesaji = "";
+        SorularıYenile();
+    }
+
+    private void TestOlustur()
+    {
+        if (string.IsNullOrWhiteSpace(yeniTestAd)) return;
+
+        var yeniTest = new Test { Ad = yeniTestAd.Trim() };
+        DbContext.Testler.Add(yeniTest);
+        DbContext.SaveChanges();
+
+        testOlusturulduMesaji = "Test eklendi.";
+        yeniTestAd = "";
+
+        TestListesiniYenile();
+        Task.Delay(3000).ContinueWith(_ => { testOlusturulduMesaji = ""; InvokeAsync(StateHasChanged); });
+    }
+
+    private async Task TestAdiniDegistir(int testId, string eskiAd)
+    {
+        
+        var yeniAd = await JSRuntime.InvokeAsync<string>("prompt", "Testin yeni adını girin:", eskiAd);
+
+        if (!string.IsNullOrWhiteSpace(yeniAd) && yeniAd.Trim() != eskiAd)
+        {
+            var test = DbContext.Testler.FirstOrDefault(t => t.Id == testId);
+            if (test != null)
+            {
+                test.Ad = yeniAd.Trim();
+                DbContext.SaveChanges();
+                TestListesiniYenile(); 
+            }
+        }
+    }
+
+    private async Task TestSil(int testId)
+    {
+        bool onay = await JSRuntime.InvokeAsync<bool>("confirm", "Bu testi ve içindeki tüm soruları silmek istediğinize emin misiniz?");
+
+        if (onay)
+        {
+            var test = DbContext.Testler.FirstOrDefault(t => t.Id == testId);
+            if (test != null)
+            {
+                var sorular = DbContext.Sorular.Where(s => s.TestId == testId).ToList();
+                DbContext.Sorular.RemoveRange(sorular);
+                DbContext.Testler.Remove(test);
+                DbContext.SaveChanges();
+
+                if (secilenTestId == testId) { secilenTestId = 0; }
+                TestListesiniYenile();
+            }
+        }
+    }
+
+    
+    private async Task SoruSil(int soruId)
+    {
+        bool onay = await JSRuntime.InvokeAsync<bool>("confirm", "Bu soruyu silmek istediğinize emin misiniz?");
+        if (onay)
+        {
+            var soru = DbContext.Sorular.FirstOrDefault(s => s.Id == soruId);
+            if (soru != null)
+            {
+                DbContext.Sorular.Remove(soru);
+                DbContext.SaveChanges();
+                SorularıYenile();
+            }
+        }
+    }
+
+    private async Task TumSorulariSil()
+    {
+        bool onay = await JSRuntime.InvokeAsync<bool>("confirm", "Bu testteki TÜM SORULARI silmek istediğinize emin misiniz? Bu işlem geri alınamaz.");
+        if (onay)
+        {
+            var sorular = DbContext.Sorular.Where(s => s.TestId == secilenTestId).ToList();
+            DbContext.Sorular.RemoveRange(sorular);
+            DbContext.SaveChanges();
+
+            SorularıYenile();
+            islemMesaji = "Testteki tüm sorular başarıyla silindi.";
+            Task.Delay(3000).ContinueWith(_ => { islemMesaji = ""; InvokeAsync(StateHasChanged); });
+        }
+    }
+
+    
+    private void ManuelSoruKaydet()
+    {
+        if (secilenTestId == 0 || string.IsNullOrWhiteSpace(mSoruMetni)) return;
+
+        var soru = new Soru
+            {
+                TestId = secilenTestId,
+                SoruTipi = manuelSoruTipi,
+                SoruMetni = mSoruMetni.Trim(),
+                DogruCevap = mDogruCevap,
+                SecenekA = manuelSoruTipi == "CoktanSecmeli" ? mSecenekA.Trim() : "",
+                SecenekB = manuelSoruTipi == "CoktanSecmeli" ? mSecenekB.Trim() : "",
+                SecenekC = manuelSoruTipi == "CoktanSecmeli" ? mSecenekC.Trim() : "",
+                SecenekD = manuelSoruTipi == "CoktanSecmeli" ? mSecenekD.Trim() : ""
+            };
+
+        DbContext.Sorular.Add(soru);
+        DbContext.SaveChanges();
+
+        islemMesaji = "Soru kaydedildi.";
+        SorularıYenile();
+
+        mSoruMetni = "";
+        mSecenekA = ""; mSecenekB = ""; mSecenekC = ""; mSecenekD = "";
+        Task.Delay(3000).ContinueWith(_ => { islemMesaji = ""; InvokeAsync(StateHasChanged); });
+    }
+
+    
+    private async Task DosyaYukle(InputFileChangeEventArgs e)
+    {
+        if (secilenTestId == 0) return;
+
+        var dosya = e.File;
+        if (dosya != null)
+        {
+            using var stream = dosya.OpenReadStream();
+            using var reader = new StreamReader(stream);
+            string icerik = await reader.ReadToEndAsync();
+
+            string[] satirlar = icerik.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            int sayac = 0;
+
+            foreach (var satir in satirlar)
+            {
+                string[] parcalar = satir.Split('|');
+                string soruTipi = parcalar[0].Trim();
+
+                if (soruTipi == "DogruYanlis" && parcalar.Length >= 3)
+                {
+                    DbContext.Sorular.Add(new Soru
+                        {
+                            TestId = secilenTestId,
+                            SoruTipi = soruTipi,
+                            SoruMetni = parcalar[1].Trim(),
+                            DogruCevap = parcalar[2].Trim()
+                        });
+                    sayac++;
+                }
+                else if (soruTipi == "CoktanSecmeli" && parcalar.Length >= 7)
+                {
+                    DbContext.Sorular.Add(new Soru
+                        {
+                            TestId = secilenTestId,
+                            SoruTipi = soruTipi,
+                            SoruMetni = parcalar[1].Trim(),
+                            SecenekA = parcalar[2].Trim(),
+                            SecenekB = parcalar[3].Trim(),
+                            SecenekC = parcalar[4].Trim(),
+                            SecenekD = parcalar[5].Trim(),
+                            DogruCevap = parcalar[6].Trim()
+                        });
+                    sayac++;
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            SorularıYenile();
+            islemMesaji = $"{sayac} soru eklendi.";
+            Task.Delay(4000).ContinueWith(_ => { islemMesaji = ""; InvokeAsync(StateHasChanged); });
+        }
+    }
+
+  
+    private void GirisYap()
+    {
+        if (girilenSifre == adminSifresi)
+        {
+            isYetkili = true; hataliGiris = false; girilenSifre = "";
+        }
+        else { hataliGiris = true; }
+    }
+
+    private void CikisYap()
+    {
+        isYetkili = false; islemMesaji = ""; testOlusturulduMesaji = ""; secilenTestId = 0;
+    }
+}

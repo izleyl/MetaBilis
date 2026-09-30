@@ -1,0 +1,116 @@
+﻿@page "/sonuc/{KullaniciId:int}"
+@rendermode @(Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer)
+@using MetaBiliş.Models
+@inject UygulamaDbContext DbContext
+
+<div class="container mt-5 text-center">
+    <h2 class="fw-bold mb-4">🧠 Metabilişsel Zihin Analizin</h2>
+    <hr />
+
+    @if (cevaplar == null)
+    {
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Sonuçların makale verilerine göre hesaplanıyor...</p>
+    }
+    else if (!cevaplar.Any())
+    {
+        <div class="alert alert-warning">
+            Henüz çözülmüş bir test verisi bulunamadı.
+        </div>
+    }
+    else
+    {
+        <div class="row mt-4 justify-content-center g-4">
+            <div class="col-md-5">
+                <div class="card shadow border-0 h-100 py-3">
+                    <div class="card-body">
+                        <h4 class="text-muted">Genel Başarı</h4>
+                        <h1 class="display-3 fw-bold text-primary">%@basariOrani</h1>
+                        <p class="text-secondary">Sorulara verdiğin doğru cevapların genel oranı.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-5">
+                <div class="card shadow border-0 h-100 py-3 bg-light">
+                    <div class="card-body">
+                        <h4 class="text-muted">Metabiliş Skoru (Brier)</h4>
+                        <h1 class="display-3 fw-bold text-success">@brierSkoru.ToString("0.00")</h1>
+                        <p class="text-secondary">Skor 0'a ne kadar yakınsa, kendi zihnini o kadar iyi tanıyorsun!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-5 shadow text-start p-4">
+            <h5 class="alert-heading fw-bold">🎯 Sistem Analizi Raporu:</h5>
+            <p class="mb-0 fs-5 mt-2">@analizYorumu</p>
+        </div>
+
+        <a href="/" class="btn btn-primary mt-4 px-5 py-2 fw-bold shadow-sm">Ana Sayfaya Dön</a>
+    }
+</div>
+
+@code {
+    [Parameter] public int KullaniciId { get; set; }
+
+    private List<KullaniciCevabi> cevaplar;
+    private double basariOrani;
+    private double brierSkoru;
+    private string analizYorumu = "";
+
+    protected override void OnInitialized()
+    {
+        if (KullaniciId > 0)
+        {
+            // Veritabanından KullaniciId'ye ait cevapları çekiyoruz
+            cevaplar = DbContext.KullaniciCevaplari.Where(c => c.KullaniciID == KullaniciId).ToList();
+
+            if (cevaplar.Any())
+            {
+                Hesapla();
+            }
+        }
+    }
+
+    private void Hesapla()
+    {
+        int dogruSayisi = cevaplar.Count(c => c.IsDogru);
+        basariOrani = Math.Round((double)dogruSayisi / cevaplar.Count * 100, 2);
+
+        double toplamBrier = 0;
+        double yonelimFarki = 0; // Aşırı özgüven veya düşük özgüven tespiti için
+
+        foreach (var cevap in cevaplar)
+        {
+            double f = cevap.EminlikPuani / 100.0;
+            double c = cevap.IsDogru ? 1.0 : 0.0;
+
+            toplamBrier += Math.Pow((f - c), 2);
+            yonelimFarki += (f - c);
+        }
+
+        brierSkoru = toplamBrier / cevaplar.Count;
+        double ortalamaYonelim = yonelimFarki / cevaplar.Count;
+
+        if (brierSkoru < 0.15)
+        {
+            analizYorumu = "Mükemmel bir metabilişsel duyarlılığa sahipsin! Ne bildiğini ve ne bilmediğini kusursuz şekilde ayırt edebiliyorsun. Kendine olan güveninle gerçek bilgin harika kalibre olmuş.";
+        }
+        else if (brierSkoru < 0.30)
+        {
+            analizYorumu = "İyi bir farkındalığın var ama kalibrasyonunda ufak sapmalar var. Kendi bilgini değerlendirirken genel olarak biraz daha dikkatli olabilirsin.";
+        }
+        else
+        {
+            if (ortalamaYonelim > 0)
+            {
+                analizYorumu = "Metabilişsel kalibrasyonun zayıf görünüyor. Emin olduğun halde yanlış yaptığın sorular oldukça fazla (Aşırı Özgüven Yanlılığı). Bilgini değerlendirirken biraz daha temkinli olmalı ve tahminlerine çok fazla güvenmemelisin.";
+            }
+            else
+            {
+                analizYorumu = "Metabilişsel kalibrasyonun zayıf görünüyor. Doğru cevapladığın sorularda bile kendine çok az güvenmişsin (Düşük Özgüven). Aslında konuyu biliyorsun, sadece doğru bildiğine dair kendine daha fazla inanmalısın!";
+            }
+        }
+    }
+}

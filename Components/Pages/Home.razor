@@ -1,0 +1,77 @@
+﻿@page "/"
+@using MetaBiliş.Models
+@inject UygulamaDbContext DbContext
+@inject NavigationManager NavManager
+<PageTitle>MetaBiliş - Test Galerisi</PageTitle>
+
+<div class="container text-center mt-5">
+    <h1 class="display-4 fw-bold mb-4">Hoş Geldin!</h1>
+    <p class="lead mb-5">Zihnini ne kadar iyi tanıyorsun? Bir test seç ve hemen keşfetmeye baş.</p>
+
+    <div class="row g-4 justify-content-center">
+        @foreach (var test in mevcutTestler)
+        {
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm border-0 transition-card">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title fw-bold">@test.Ad</h5>
+                        <p class="card-text text-muted small">Bu test ile doğru/yanlış kararlarındaki metabilişsel duyarlılığını ölçebilirsin.</p>
+                        <button class="btn btn-primary mt-auto" @onclick="() => TestiBaslat(test.Id)">Teste Başla</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@* KULLANICI ADI SORAN MODAL (PENCERE) *@
+@if (showUsernameModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Son bir adım!</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Metabilişsel analizini hazırlayabilmemiz için bir kullanıcı adı belirle:</p>
+                    <input type="text" class="form-control" placeholder="Örn: Eylül2026" @bind="yeniKullaniciAdi" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success w-100" @onclick="KullaniciyiKaydetVeGit">Hadi Başlayalım!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Test> mevcutTestler = new();
+    private bool showUsernameModal = false;
+    private int secilenTestId;
+    private string yeniKullaniciAdi = "";
+
+    protected override void OnInitialized()
+    {
+        mevcutTestler = DbContext.Testler.ToList();
+    }
+    private void TestiBaslat(int testId)
+    {
+        secilenTestId = testId;
+        showUsernameModal = true;
+    }
+
+    private void KullaniciyiKaydetVeGit()
+    {
+        if (!string.IsNullOrWhiteSpace(yeniKullaniciAdi))
+        {
+            // 1. Kullanıcıyı veri tabanına ekle
+            var kullanici = new Kullanici { KullaniciAdi = yeniKullaniciAdi };
+            DbContext.Kullanicilar.Add(kullanici);
+            DbContext.SaveChanges(); // Bu satır çalıştığında eşsiz ID numarası oluşur
+
+            // 2. Test sayfasına ID'leri fırlat!
+            NavManager.NavigateTo($"/testcoz/{secilenTestId}/{kullanici.KullaniciID}");
+        }
+    }
+}

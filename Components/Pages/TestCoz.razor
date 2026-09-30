@@ -1,0 +1,164 @@
+﻿@page "/testcoz/{TestId:int}/{KullaniciId:int}"
+@rendermode @(Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer)
+@using MetaBiliş.Models
+@inject UygulamaDbContext DbContext
+@inject NavigationManager NavManager
+
+<style>
+    .test-bg {
+        background-color: #f8f9fa;
+        min-height: 100vh;
+        padding-top: 3rem;
+    }
+
+    .glass-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.03);
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .option-btn {
+        border-radius: 12px;
+        transition: all 0.2s;
+        border-width: 2px;
+    }
+
+        .option-btn:hover {
+            background-color: #f8f9fa;
+        }
+</style>
+
+<div class="test-bg">
+    <div class="container" style="max-width: 800px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold text-dark mb-0">Metabilişsel Test Ekranı</h3>
+            @if (sorular != null && sorular.Any())
+            {
+                <span class="badge bg-primary rounded-pill px-3 py-2 fs-6">Soru @(mevcutSoruIndex + 1) / @sorular.Count</span>
+            }
+        </div>
+
+        @if (sorular == null)
+        {
+            <div class="glass-card p-5 text-center">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-3 text-muted">Sorular yükleniyor...</p>
+            </div>
+        }
+        else if (testBitti)
+        {
+            <div class="glass-card p-5 text-center alert-success border-0">
+                <h1 class="display-4 mb-3">✅</h1>
+                <h3 class="fw-bold">Test Tamamlandı!</h3>
+                <p class="text-muted fs-5">Sonuç sayfasına yönlendiriliyorsunuz...</p>
+            </div>
+        }
+        else
+        {
+            var mevcutSoru = sorular[mevcutSoruIndex];
+
+            <div class="glass-card p-4 p-md-5 shadow-sm">
+                <p class="fs-4 fw-semibold text-dark lh-base mb-4">@mevcutSoru.SoruMetni</p>
+
+                <!-- SORU TİPİNE GÖRE ŞIKLARIN ÇİZİLMESİ -->
+                @if (mevcutSoru.SoruTipi == "DogruYanlis")
+                {
+                    <div class="d-flex gap-3 my-4">
+                        <button class="btn option-btn @(secilenCevap == "Doğru" ? "btn-primary border-primary text-white" : "btn-outline-secondary border-light text-dark") w-50 py-3 fs-5" @onclick='@(() => Cevapla("Doğru"))'>
+                            Doğru
+                        </button>
+                        <button class="btn option-btn @(secilenCevap == "Yanlış" ? "btn-primary border-primary text-white" : "btn-outline-secondary border-light text-dark") w-50 py-3 fs-5" @onclick='@(() => Cevapla("Yanlış"))'>
+                            Yanlış
+                        </button>
+                    </div>
+                }
+                else if (mevcutSoru.SoruTipi == "CoktanSecmeli")
+                {
+                    <div class="d-flex flex-column gap-3 my-4">
+                        <button class="btn option-btn @(secilenCevap == "A" ? "btn-primary border-primary text-white" : "btn-outline-secondary border-light text-dark") text-start py-3 px-4 fs-5" @onclick='@(() => Cevapla("A"))'>
+                            <strong class="me-2 @(secilenCevap == "A" ? "text-white" : "text-muted")">A)</strong> @mevcutSoru.SecenekA
+                        </button>
+                        <button class="btn option-btn @(secilenCevap == "B" ? "btn-primary border-primary text-white" : "btn-outline-secondary border-light text-dark") text-start py-3 px-4 fs-5" @onclick='@(() => Cevapla("B"))'>
+                            <strong class="me-2 @(secilenCevap == "B" ? "text-white" : "text-muted")">B)</strong> @mevcutSoru.SecenekB
+                        </button>
+                        <button class="btn option-btn @(secilenCevap == "C" ? "btn-primary border-primary text-white" : "btn-outline-secondary border-light text-dark") text-start py-3 px-4 fs-5" @onclick='@(() => Cevapla("C"))'>
+                            <strong class="me-2 @(secilenCevap == "C" ? "text-white" : "text-muted")">C)</strong> @mevcutSoru.SecenekC
+                        </button>
+                        <button class="btn option-btn @(secilenCevap == "D" ? "btn-primary border-primary text-white" : "btn-outline-secondary border-light text-dark") text-start py-3 px-4 fs-5" @onclick='@(() => Cevapla("D"))'>
+                            <strong class="me-2 @(secilenCevap == "D" ? "text-white" : "text-muted")">D)</strong> @mevcutSoru.SecenekD
+                        </button>
+                    </div>
+                }
+
+                <!-- EMİNLİK PUANI VE ONAYLAMA (Sadece bir şık seçildiğinde görünür) -->
+                @if (!string.IsNullOrEmpty(secilenCevap))
+                {
+                    <div class="mt-5 border-top pt-4">
+                        <label class="form-label fw-bold text-primary mb-3">Bu cevabından ne kadar eminsin? (%@eminlikPuani)</label>
+                        <input type="range" class="form-range" min="0" max="100" step="10" @bind="eminlikPuani" />
+                        <div class="d-flex justify-content-between small fw-medium text-muted mt-2">
+                            <span>Hiç Emin Değilim (%0)</span>
+                            <span>Tamamen Eminim (%100)</span>
+                        </div>
+                        <button class="btn btn-success mt-4 w-100 py-3 rounded-pill fw-bold fs-5 shadow-sm" @onclick="KaydetVeIlerle">
+                            Onayla ve İlerle
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TestId { get; set; }
+    [Parameter] public int KullaniciId { get; set; }
+
+    private List<Soru> sorular = new();
+    private int mevcutSoruIndex = 0;
+    private string secilenCevap = "";
+    private int eminlikPuani = 50;
+    private bool testBitti = false;
+
+    protected override void OnInitialized()
+    {
+        sorular = DbContext.Sorular.Where(s => s.TestId == TestId).ToList();
+    }
+
+    private void Cevapla(string cevap)
+    {
+        secilenCevap = cevap;
+    }
+
+    private void KaydetVeIlerle()
+    {
+        var soru = sorular[mevcutSoruIndex];
+        bool dogruMu = (secilenCevap == soru.DogruCevap);
+
+        var yeniCevap = new KullaniciCevabi
+            {
+                KullaniciID = KullaniciId,
+                SoruId = soru.Id,
+                VerilenCevap = secilenCevap,
+                IsDogru = dogruMu,
+                EminlikPuani = eminlikPuani
+            };
+
+        DbContext.KullaniciCevaplari.Add(yeniCevap);
+        DbContext.SaveChanges();
+
+        if (mevcutSoruIndex < sorular.Count - 1)
+        {
+            mevcutSoruIndex++;
+            secilenCevap = "";
+            eminlikPuani = 50;
+            StateHasChanged();
+        }
+        else
+        {
+            testBitti = true;
+            NavManager.NavigateTo($"/sonuc/{KullaniciId}");
+        }
+    }
+}

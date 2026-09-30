@@ -1,0 +1,120 @@
+﻿<div class="top-row ps-3 navbar navbar-light d-md-none border-bottom bg-white">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" style="color: #0d6efd;" href="">MetaBiliş</a>
+        <button title="Menüyü Aç/Kapat" class="navbar-toggler border-0 shadow-none" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon" style="filter: brightness(0.5);"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass modern-sidebar" @onclick="ToggleNavMenu">
+
+    <!-- Logo Alanı -->
+    <div class="d-none d-md-block text-center mt-3 mb-4">
+        <a class="brand-title text-decoration-none" href="">MetaBiliş</a>
+    </div>
+
+    <!-- Menü Linkleri -->
+    <nav class="flex-column">
+        <div class="nav-item-modern">
+            <NavLink class="nav-link-modern" href="" Match="NavLinkMatch.All">
+                <span class="nav-icon">🏠</span> <span>Ana Sayfa</span>
+            </NavLink>
+        </div>
+        <div class="nav-item-modern">
+            <NavLink class="nav-link-modern" href="materyaller">
+                <span class="nav-icon">📚</span> <span>Materyaller</span>
+            </NavLink>
+        </div>
+        <div class="nav-item-modern">
+            <NavLink class="nav-link-modern" href="testcoz">
+                <span class="nav-icon">✍️</span> <span>Test Çöz</span>
+            </NavLink>
+        </div>
+        <div class="nav-item-modern">
+            <NavLink class="nav-link-modern" href="sonuc">
+                <span class="nav-icon">📊</span> <span>Sonuçlarım</span>
+            </NavLink>
+        </div>
+
+        <hr class="my-4 text-muted opacity-25 mx-3" />
+
+        <div class="nav-item-modern">
+            <NavLink class="nav-link-modern" href="admin">
+                <span class="nav-icon">⚙️</span> <span>Yönetici Paneli</span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+<style>
+    /* Modern Menü Tasarımı */
+    .modern-sidebar {
+        background-color: #ffffff;
+        min-height: 100vh;
+        padding: 1rem;
+        border-right: 1px solid rgba(0,0,0,0.05);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.02);
+    }
+
+    .brand-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #0d6efd, #0dcaf0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+    }
+
+    .nav-item-modern {
+        margin-bottom: 0.4rem;
+    }
+
+    .nav-link-modern {
+        color: #64748b !important;
+        font-weight: 500;
+        padding: 0.8rem 1.2rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        text-decoration: none;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+        /* Üzerine gelince sağa kayma ve renk değişimi efekti */
+        .nav-link-modern:hover {
+            background-color: #f8fafc;
+            color: #0d6efd !important;
+            transform: translateX(6px);
+        }
+
+        /* Aktif (Tıklanmış) sekme stili */
+        .nav-link-modern.active {
+            background-color: #eff6ff;
+            color: #0d6efd !important;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.1);
+        }
+
+    .nav-icon {
+        font-size: 1.2rem;
+        transition: transform 0.3s ease;
+    }
+
+    /* Üzerine gelince ikonun hafif büyümesi */
+    .nav-link-modern:hover .nav-icon {
+        transform: scale(1.15);
+    }
+</style>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}
